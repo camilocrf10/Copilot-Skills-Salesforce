@@ -76,7 +76,7 @@ public with sharing class AgentOrderActions {
                            Account.Name, Description
                     FROM Order
                     WHERE OrderNumber = :req.orderNumber
-                    WITH SECURITY_ENFORCED
+                    WITH USER_MODE
                     LIMIT 1
                 ];
 

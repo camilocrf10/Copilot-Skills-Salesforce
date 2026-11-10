@@ -145,7 +145,7 @@ public with sharing class AccountCalloutService {
         List<Account> accounts = [
             SELECT Id, Name, BillingCity FROM Account
             WHERE Id IN :accountIds
-            WITH SECURITY_ENFORCED
+            WITH USER_MODE
         ];
         // Make HTTP callout
         HttpRequest req = new HttpRequest();
@@ -575,7 +575,7 @@ public static Account getAccount(Id accountId) {
             SELECT Id, Name, Industry
             FROM Account
             WHERE Id = :accountId
-            WITH SECURITY_ENFORCED
+            WITH USER_MODE
         ];
         if (accounts.isEmpty()) {
             throw new AuraHandledException('Account not found');
@@ -1044,7 +1044,7 @@ public with sharing class OpportunityController {
             SELECT Id, Name, Amount, StageName, CloseDate
             FROM Opportunity
             WHERE IsClosed = false
-            WITH SECURITY_ENFORCED
+            WITH USER_MODE
             ORDER BY CloseDate ASC LIMIT 10
         ];
         return data;
@@ -1069,7 +1069,7 @@ public class DataTableService {
         for (Contact c : [
             SELECT Id, Name, Email, Phone, Account.Name
             FROM Contact WHERE AccountId = :accountId
-            WITH SECURITY_ENFORCED
+            WITH USER_MODE
         ]) {
             rows.add(new ContactRow(c));
         }

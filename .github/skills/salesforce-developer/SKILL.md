@@ -57,10 +57,10 @@ For complex tasks (e.g., "build an LWC that calls Apex with integration"), read 
 1. **Bulkify all Apex** — no SOQL/DML inside loops. Handle 200+ records in triggers.
 2. **Governor limits** — 100 SOQL (sync), 150 DML, 50k rows, 10s CPU, 6 MB heap.
 3. **One trigger per object** — handler class with `switch on Trigger.operationType`.
-4. **Security** — `with sharing` on classes, `WITH SECURITY_ENFORCED` in SOQL, `Security.stripInaccessible()` for DML.
+4. **Security** — Declare sharing explicitly and set an access mode on each production database operation. Prefer USER_MODE for user-context SOQL/DML; system mode bypasses CRUD/FLS while record sharing still depends on the class declaration. Use `Security.stripInaccessible()` when graceful field filtering is intended, and document/authorize intentional system-mode operations.
 5. **Testing** — 200-record bulk tests, positive/negative/edge, `@TestSetup`, `Test.startTest()`/`Test.stopTest()`.
 6. **Error handling** — try-catch on DML, `AuraHandledException` for LWC, `Database.insert(records, false)` for partial success.
-7. **Latest GA API version** (currently 66.0) on all new metadata. Update when Salesforce releases a new version.
+7. **Latest GA API version** on new metadata. API 68.0 is the version recorded in project examples, not proof it remains latest GA; verify official release documentation before creating metadata.
 8. **Always include `-meta.xml`** for classes, triggers, LWC.
 9. **Use `sf` CLI** (not deprecated `sfdx`).
 10. **Layered architecture** — Trigger → Handler → Service → Selector.
@@ -189,10 +189,10 @@ For full async patterns, see [references/apex-patterns.md](references/apex-patte
 
 1. Every field referenced in code MUST be in the SOQL SELECT clause (Rule A1)
 2. Include `-meta.xml` for all new classes, triggers, LWC
-3. Latest GA API version (currently 66.0) on all metadata
+3. Latest GA API version verified in official documentation; API 68.0 is the recorded project example
 4. Include JSDoc in LWC JavaScript and ApexDoc in Apex
 5. Wrap DML in try-catch, use `AuraHandledException` for LWC
-6. Use `WITH SECURITY_ENFORCED` in SOQL
+6. Explicitly set the access mode for each production SOQL/SOSL/DML operation; prefer USER_MODE for user-context work
 7. Use `Database.insert(records, false)` for partial success
 8. Null-check query results, `Map.get()` returns, parent relationship fields
 9. Guard DML with `!list.isEmpty()`
@@ -228,7 +228,7 @@ For full error patterns and JSON/debugging details, see [references/apex-pattern
 ```xml
 <?xml version="1.0" encoding="UTF-8"?>
 <ApexClass xmlns="http://soap.sforce.com/2006/04/metadata">
-    <apiVersion>66.0</apiVersion>
+    <apiVersion>68.0</apiVersion>
     <status>Active</status>
 </ApexClass>
 ```
@@ -237,7 +237,7 @@ For full error patterns and JSON/debugging details, see [references/apex-pattern
 ```xml
 <?xml version="1.0" encoding="UTF-8"?>
 <ApexTrigger xmlns="http://soap.sforce.com/2006/04/metadata">
-    <apiVersion>66.0</apiVersion>
+    <apiVersion>68.0</apiVersion>
     <status>Active</status>
 </ApexTrigger>
 ```
@@ -246,7 +246,7 @@ For full error patterns and JSON/debugging details, see [references/apex-pattern
 ```xml
 <?xml version="1.0" encoding="UTF-8"?>
 <LightningComponentBundle xmlns="http://soap.sforce.com/2006/04/metadata">
-    <apiVersion>66.0</apiVersion>
+    <apiVersion>68.0</apiVersion>
     <isExposed>true</isExposed>
     <targets>
         <target>lightning__RecordPage</target>

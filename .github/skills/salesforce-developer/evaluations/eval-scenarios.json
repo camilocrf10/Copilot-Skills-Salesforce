@@ -9,7 +9,7 @@
       "Uses 'after update' trigger event with switch on Trigger.operationType",
       "Bulkifies: no SOQL or DML inside loops",
       "Queries Contacts using a Map<Id, Account> pattern",
-      "Uses WITH SECURITY_ENFORCED or Security.stripInaccessible()",
+      "Uses USER_MODE for user-context SOQL/DML or documents the reason and authorization controls for system mode",
       "Includes a -meta.xml file with latest GA API version",
       "Handler class uses 'with sharing'"
     ]
@@ -25,7 +25,7 @@
       "No inline expressions in template (no {a + b} or ternary)",
       "JavaScript imports api, wire, or track from 'lwc' correctly",
       "Apex controller uses @AuraEnabled(cacheable=true) for wire or @AuraEnabled for imperative",
-      "Apex uses 'with sharing' and WITH SECURITY_ENFORCED",
+      "Apex enforces user-context access with USER_MODE or documents the reason and authorization controls for system mode",
       "Includes AuraHandledException for error handling",
       "Includes js-meta.xml with targets and latest GA API version",
       "Null-checks query results before returning"
@@ -41,7 +41,7 @@
       "start() uses Database.getQueryLocator with selective SOQL",
       "execute() collects records in a list and performs single DML outside loop",
       "finish() includes post-processing logic or notification",
-      "Uses WITH SECURITY_ENFORCED in SOQL",
+      "Chooses and documents an appropriate SOQL access mode for the batch execution context",
       "Wraps DML in try-catch",
       "Guards DML with !list.isEmpty()",
       "Includes a test class with 200+ records, @TestSetup, Test.startTest()/Test.stopTest()",

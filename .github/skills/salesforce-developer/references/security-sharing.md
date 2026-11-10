@@ -97,28 +97,37 @@ public with sharing class OuterClass {
 
 ## CRUD and FLS Enforcement
 
-### WITH SECURITY_ENFORCED (SOQL — Recommended)
+### User-Mode SOQL and Field-Level Filtering
 
-The simplest way to enforce CRUD and FLS in SOQL. Throws an exception if the user lacks
-access to any field or object in the query.
+For user-context queries, prefer `WITH USER_MODE` to enforce the running user's access,
+including sharing, CRUD, and FLS.
+
+Salesforce documents user-mode as the default in API 67.0 and later; API 66.0 and earlier
+default to system-mode. Still specify the access mode on each database operation so
+behavior does not silently change when a class API version changes. `with sharing` controls
+record-level sharing only; it does not enforce CRUD/FLS.
 
 ```apex
-// Throws System.QueryException if user can't read Account.Name, Account.AnnualRevenue,
-// or the Account object itself
 List<Account> accounts = [
     SELECT Id, Name, AnnualRevenue
     FROM Account
     WHERE Industry = 'Technology'
-    WITH SECURITY_ENFORCED
+    WITH USER_MODE
 ];
 ```
 
-**Pros:** Simple, declarative, covers the entire query
-**Cons:** All-or-nothing — fails if ANY field is inaccessible (no graceful degradation)
+Use `Security.stripInaccessible()` when graceful field filtering is intended, and explicitly
+handle the returned records, removed-field information, and object-access failures. To strip
+inaccessible fields after querying, use a deliberately designed query in a class with
+explicit sharing; do not rely on field stripping to secure fields used in filters, ordering,
+or other query logic. Use system mode only for intentionally privileged operations with
+documented authorization controls. Do not use `WITH SECURITY_ENFORCED` as a default; prefer
+`WITH USER_MODE` for user-context access.
 
-### WITH USER_MODE / SYSTEM_MODE (API v56.0+)
+### Explicit Database Access Modes
 
-More granular control introduced in API v56.0 (Winter '23). DML support via `AccessLevel` added in v57.0.
+Specify an access mode explicitly for each SOQL/SOSL/DML operation, including when a mode
+matches the default for the class's API version.
 
 ```apex
 // USER_MODE — enforces CRUD, FLS, AND sharing rules
@@ -128,7 +137,8 @@ List<Account> accounts = [
     WITH USER_MODE
 ];
 
-// SYSTEM_MODE — bypasses all security (explicit opt-in)
+// SYSTEM_MODE — bypasses CRUD/FLS; record sharing still depends on this class's sharing declaration.
+// Only use for an intentionally privileged operation with authorization controls.
 List<Account> accounts = [
     SELECT Id, Name, AnnualRevenue
     FROM Account
@@ -148,26 +158,33 @@ Database.update(records, AccessLevel.USER_MODE);
 
 ### Security.stripInaccessible()
 
-Gracefully removes fields the user can't access instead of throwing an exception.
+Gracefully removes inaccessible fields instead of failing a user-mode query. This example
+uses SYSTEM_MODE for the query only so inaccessible selected fields can be stripped; the
+class still enforces record sharing. Do not filter or order by fields the user cannot access,
+because stripping the returned fields does not secure query logic.
 
 ```apex
-List<Account> accounts = [SELECT Id, Name, AnnualRevenue, Phone FROM Account];
+public with sharing class AccountReadService {
+    public static List<Account> getAccounts(Set<Id> accountIds) {
+        List<Account> accounts = [
+            SELECT Id, Name, AnnualRevenue, Phone
+            FROM Account
+            WHERE Id IN :accountIds
+            WITH SYSTEM_MODE
+        ];
 
-// Strip fields the user can't read
-SObjectAccessDecision decision = Security.stripInaccessible(
-    AccessType.READABLE,
-    accounts
-);
+        SObjectAccessDecision decision = Security.stripInaccessible(
+            AccessType.READABLE,
+            accounts
+        );
 
-// Get sanitized records — inaccessible fields are removed (null)
-List<Account> sanitized = decision.getRecords();
-
-// Check which fields were removed
-Set<String> removedFields = decision.getRemovedFields().get('Account');
-if (removedFields != null && !removedFields.isEmpty()) {
-    System.debug('Stripped fields: ' + removedFields);
+        return (List<Account>) decision.getRecords();
+    }
 }
 ```
+
+In production code, inspect `getRemovedFields()` when the caller must know that data was
+filtered. Never log the sensitive field values.
 
 **Access types:**
 - `AccessType.READABLE` — Check read access
@@ -207,11 +224,14 @@ Schema.sObjectType.Account.isDeletable();
 
 | Method | When to Use |
 |---|---|
-| `WITH SECURITY_ENFORCED` | Default for SOQL in user-facing code |
-| `WITH USER_MODE` | When you also want sharing enforced in the query itself |
-| `Security.stripInaccessible()` | When you want graceful degradation instead of exceptions |
+| `WITH USER_MODE` | Preferred explicit mode for user-context SOQL/DML |
+| `Security.stripInaccessible()` | When graceful field filtering is intended |
 | Manual `isAccessible()` | When you need fine-grained control or custom error messages |
-| `WITH SYSTEM_MODE` | Only for system-level operations that explicitly need full access |
+| `WITH SYSTEM_MODE` | Only for intentionally privileged operations with documented authorization; class sharing still matters |
+| `WITH SECURITY_ENFORCED` | Avoid as a default; prefer USER_MODE for user-context operations |
+
+Official references: [Secure Apex Classes](https://developer.salesforce.com/docs/platform/lwc/guide/apex-security.html) and
+[Set an Access Mode for Database Operations](https://developer.salesforce.com/docs/platform/apex-dev/references/apex-dev/apex-classes-enforce-usermode.html).
 
 ---
 
@@ -317,7 +337,7 @@ public without sharing class AccountSharingService {
 ### Apex Security Checklist
 
 1. **Always use `with sharing`** on classes called from user context (LWC, Aura, VF)
-2. **Use `WITH SECURITY_ENFORCED`** or `WITH USER_MODE` on SOQL queries
+2. **Specify a database access mode explicitly**; prefer `WITH USER_MODE` for user-context SOQL and authorize any intentional system-mode operation
 3. **Use `Security.stripInaccessible()`** before DML if you need graceful handling
 4. **Never hardcode credentials** — use Named Credentials or Custom Metadata
 5. **Escape user input** in dynamic SOQL with `String.escapeSingleQuotes()`
@@ -337,7 +357,7 @@ import { getRecord, getFieldValue } from 'lightning/uiRecordApi';
 import NAME_FIELD from '@salesforce/schema/Account.Name';
 
 // BAD — Do not construct dynamic API calls with user input
-// const endpoint = '/services/data/v66.0/sobjects/' + userInput; ❌
+// const endpoint = '/services/data/v68.0/sobjects/' + userInput; ❌
 
 // GOOD — Always sanitize user input for display
 // LWC templates auto-escape by default ({expression} is safe)

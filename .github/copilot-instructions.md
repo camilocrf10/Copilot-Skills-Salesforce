@@ -51,6 +51,21 @@ Each skill has a `references/` directory with deep-dive guides. Read the ones ma
 
 ---
 
+## Keep Salesforce Guidance Current
+
+Before answering or making changes for a Salesforce task, verify the current Salesforce release and the latest generally available (GA) API version using official Salesforce release notes and developer documentation relevant to the task. For tasks that change these instructions, skills, or coding rules, also inspect the applicable repository guidance and reconcile it with current official documentation.
+
+- Treat **API 68.0** as the version currently recorded in project guidance, not as verified proof of the latest GA version. Confirm the latest GA version in official Salesforce documentation before creating metadata; never infer that a preview or beta version is GA. If it cannot be verified, state that limitation and do not claim a version is current.
+- Check the release notes and current Apex, LWC, metadata, or CLI documentation that apply to the requested feature. Verify availability, behavior changes, deprecations, and any edition, permission, or rollout requirements before relying on them.
+- When repository guidance conflicts with current official platform behavior, prefer verified Salesforce documentation, preserve project conventions that remain valid, and identify any guidance that needs updating. Do not silently repeat stale rules or examples.
+- Do not upgrade existing metadata API versions just because a newer version is available. Change existing versions only when requested or required for the task, and explain the impact.
+- Prefer official Salesforce documentation as the source of truth. If it cannot be accessed or a detail cannot be verified, state that limitation and avoid presenting the detail as confirmed.
+- For version verification, consult Salesforce's [Metadata API Versions](https://developer.salesforce.com/docs/atlas.en-us.api_meta.meta/api_meta/meta_api_versions.htm) documentation and the release notes for the target release. Treat API numbers in repository snippets as examples until verified.
+- For Apex security, consult [Secure Apex Classes](https://developer.salesforce.com/docs/platform/lwc/guide/apex-security.html) and [Set an Access Mode for Database Operations](https://developer.salesforce.com/docs/platform/apex-dev/references/apex-dev/apex-classes-enforce-usermode.html). Keep record sharing separate from object/field permissions: `with sharing` controls record-level sharing; it does not by itself enforce CRUD/FLS.
+- Keep detailed coding standards in the canonical skill and ruleset files referenced above; update those files when their guidance is stale rather than duplicating large rule sets here.
+
+---
+
 ## Architecture
 
 - Layer order: **Trigger → Handler → Service → Selector**. Triggers are logic-free; all business logic lives in Service classes.
@@ -62,18 +77,19 @@ Each skill has a `references/` directory with deep-dive guides. Read the ones ma
 
 ## Apex — Critical Rules
 
-- **API version: 66.0** (Spring '26) for all new components.
+- **API version:** Use the latest GA API version verified for the current Salesforce release and supported by the project. API 68.0 is the version recorded in project examples; verify its GA status and check for a newer release before creating metadata.
 - **Never** put SOQL, DML, or HTTP callouts inside loops. Collect, query once, process in bulk.
 - Always use bind variables (`:variable`) in SOQL — never concatenate user input (SOQL injection risk).
-- Prefer `Database.insert/update/delete` with `allOrNone=false` for partial-success handling; always check `SaveResult`.
-- Use **User Mode** for all new DML/SOQL (API 60.0+): `Database.insert(records, AccessLevel.USER_MODE)` and `SELECT ... WITH USER_MODE`.
+- Prefer `Database.insert/update/delete` with `allOrNone=false` when partial-success handling is required; inspect and handle every `SaveResult`.
+- **Security mode:** In production code, explicitly choose `USER_MODE` or `SYSTEM_MODE` for each database operation (SOQL, SOSL, DML), even when the API-version default appears to match the intent. Prefer `WITH USER_MODE` and Database methods with `AccessLevel.USER_MODE` for user-context work. Salesforce documents user-mode as the default in API 67.0+ and system-mode in API 66.0 and earlier. System mode bypasses CRUD/FLS; record sharing still depends on the class sharing declaration. Use it only for a documented, authorized business need, and keep least-privilege record sharing. `with sharing` alone does not enforce CRUD/FLS. Treat older snippets using shorthand DML as syntax examples, not as the recommended access-mode pattern for production code.
+- Use `Security.stripInaccessible()` when graceful filtering of inaccessible fields is required. Handle removed fields and object-access failures explicitly, preserve record-sharing enforcement, and do not rely on field stripping to secure fields used in filters, ordering, or other query logic.
 - Use the **Safe Navigation Operator** (`?.`) to prevent NPEs: `account?.Name`. Avoid `?.` in boolean conditions — use `accounts != null && accounts.isEmpty()` instead.
 - Use `switch on` instead of long `if-else` chains. Use `Assert.areEqual()` not `System.assertEquals()`.
-- Prefer **Queueable** over `@future` for all new async code. Attach a `Finalizer` via `System.attachFinalizer()` for error recovery.
+- Prefer **Queueable** over `@future` for new async code. Attach a Finalizer when the job requires post-execution error handling or recovery.
 - `@InvocableMethod` must have `label` + `description`, accept `List<Input>`, return `List<Output>`, and delegate to a Service class. One per class.
 - Never hardcode IDs, org URLs, or credentials — use Custom Metadata, Named Credentials, or Custom Labels.
-- Remove all `System.debug` statements before deploying, or gate them: `System.debug(LoggingLevel.ERROR, msg)`.
-- Never use empty `catch` blocks — always handle, log, or rethrow. Use `addError()` on records in trigger context instead of throwing exceptions.
+- Remove ad hoc `System.debug` statements before deploying. `LoggingLevel` sets severity; it does not disable or gate logging. Use an approved logger when production diagnostics are required, and avoid logging sensitive data.
+- Never use empty `catch` blocks — handle, log through an approved logger, or rethrow. Use `addError()` only to report record-level validation/business errors in trigger context; use appropriate exceptions or result handling elsewhere.
 - Use custom exception classes for domain logic: `public class CaseRoutingException extends Exception {}`
 
 ---
@@ -119,18 +135,18 @@ Each skill has a `references/` directory with deep-dive guides. Read the ones ma
 
 ## Testing
 
-- Apex: 95%+ coverage target (75% is deployment minimum, not the quality bar). Use `@testSetup`, never `@SeeAllData=true`.
+- Apex: meet the Salesforce deployment threshold and any project-specific coverage target. If the project sets no target, prioritize meaningful assertions and coverage of behavior, bulk, permission, and error paths; do not treat 95% as a universal requirement. Use `@testSetup` where it improves test setup, and avoid `@SeeAllData=true` except for documented platform-required cases.
 - Test method naming: `test_[method]_[scenario]_[expectedResult]`. Every assertion must include a descriptive message.
 - Always use `Test.startTest()` / `Test.stopTest()` for governor limit resets and async execution.
-- LWC: Jest tests in `__tests__/[componentName].test.js`. Always `afterEach(() => { while (document.body.firstChild) document.body.removeChild(...) })`.
+- LWC: Jest tests in `__tests__/[componentName].test.js`. Clean up only DOM elements created by the test (prefer a tracked component element or shared test helper), not every child of `document.body`.
 
 ---
 
 ## Security
 
-- SOQL: `WITH USER_MODE` (preferred) or `WITH SECURITY_ENFORCED`. DML: `Security.stripInaccessible(AccessType.CREATABLE/UPDATABLE, records)`.
+- For user-context SOQL/DML, prefer `WITH USER_MODE` / `AccessLevel.USER_MODE`. Use `Security.stripInaccessible()` when graceful field filtering is intended, and handle its results explicitly. Do not prescribe `WITH SECURITY_ENFORCED` as a default; use it only for a justified compatibility need after checking current Salesforce guidance.
 - Never use `global` access modifier unless building a managed package or REST/SOAP endpoint — use `public`.
 - Mixed DML: never combine setup objects (User, PermissionSet) and non-setup objects (Account, Contact) in the same transaction.
-- Triggers: NEVER perform callouts directly — use `@future(callout=true)` or Queueable with `Database.AllowsCallouts`.
+- Triggers: never perform callouts directly; enqueue an appropriate asynchronous process, preferably Queueable with `Database.AllowsCallouts` for new implementations.
 - Never use `eval()`, `Function()`, or `innerHTML` with dynamic content in LWC.
 - Never store sensitive data (tokens, passwords) in LWC component state or local storage.

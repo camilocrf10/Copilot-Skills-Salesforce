@@ -63,7 +63,7 @@ For complex tasks (e.g., "design a multi-cloud architecture with integrations"),
 5. **One Trigger Per Object** — Layered architecture: Trigger → Handler → Service → Selector.
 6. **Integration Documentation** — Every integration must document: data ownership, direction, timing, volume, error handling, auth, rate limits, idempotency, rollback.
 7. **Environment Strategy** — Define Dev → QA → UAT → Staging → Production with source control and CI/CD.
-8. **Latest GA API Version** — All new metadata must use the latest GA API version (currently 66.0). Update when Salesforce releases a new version.
+8. **Latest GA API Version** — Use the latest GA API version verified in official Salesforce documentation for new metadata. API 68.0 is the version recorded in project examples, not proof it remains latest GA; verify before creating metadata.
 
 ---
 

@@ -27,7 +27,7 @@ List<Account> accounts = [
     SELECT Id, Name, Industry
     FROM Account
     WHERE Industry = 'Technology'
-    WITH SECURITY_ENFORCED
+    WITH USER_MODE
     LIMIT 200
 ];
 ```
@@ -623,7 +623,7 @@ for (Integer offset = 0; offset < totalRecords; offset += pageSize) {
 | **Random access** | ✅ `fetch(position, count)` — any position | ❌ Sequential only | ✅ Via OFFSET clause |
 | **Use case** | Flexible pagination in Apex | Batch Apex start() method | Simple pagination, small sets |
 | **Governor impact** | Each `fetch()` = 1 SOQL query | 1 query in start() | 1 query per page |
-| **Supports USER_MODE** | ✅ | ❌ | N/A (use WITH SECURITY_ENFORCED) |
+| **Supports USER_MODE** | ✅ | ❌ | N/A — select the access mode supported for the query and API version |
 
 ### Cursor in Batch Apex
 

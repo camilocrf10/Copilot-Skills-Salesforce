@@ -58,7 +58,7 @@ This is a **copy-paste-ready** ruleset. Depending on your tool:
 
 ```
 RULES:
-- Use API version 66.0 (Spring '26) or later for all new components. Keep all components on the same API version.
+- Use the latest GA API version verified in official Salesforce documentation and supported by the project. API 68.0 is the version currently recorded in project examples, not proof it is still the latest GA version. Verify before creating metadata; do not assume preview/beta versions are GA.
 - Never hardcode IDs. Use Custom Metadata Types, Custom Labels, Custom Settings, or SOQL queries to resolve IDs dynamically.
 - Never hardcode org-specific URLs, endpoints, or credentials. Use Named Credentials, Custom Metadata, or Remote Site Settings.
 - Always use `with sharing` by default on all classes. Only use `without sharing` when explicitly required and documented with a reason.
@@ -72,8 +72,8 @@ RULES:
 - Field/property declarations should appear before method declarations in a class (PMD: FieldDeclarationsShouldBeAtStart).
 - Always use braces {} for if, else, for, while, and do-while blocks — even single-line bodies (PMD: IfStmtsMustUseBraces, ForLoopsMustUseBraces).
 - Always include meaningful comments for complex logic.
-- Remove all System.debug statements before deploying to production (or gate them behind a logging utility). Debug statements consume CPU time even when debug logs are off (PMD: AvoidDebugStatements).
-- When using System.debug, always include a LoggingLevel as the first parameter: System.debug(LoggingLevel.ERROR, 'message') (PMD: DebugsShouldUseLoggingLevel).
+- Remove ad hoc System.debug statements before deploying to production. Use an approved logging utility for required diagnostics, with sensitive-data controls. LoggingLevel sets severity; it does not disable or gate logging (PMD: AvoidDebugStatements).
+- When System.debug is temporarily needed, include a LoggingLevel as the first parameter (PMD: DebugsShouldUseLoggingLevel).
 - Never use `@SuppressWarnings` to hide legitimate issues.
 - Never perform DML operations in class constructors or initializers — DML in constructors executes before CSRF token validation, and more commonly causes application errors on page load. PMD classifies this as Error Prone, not a security vulnerability (PMD: ApexCSRF).
 - Remove unused local variables — they add noise and confuse maintainers (PMD: UnusedLocalVariable).
@@ -145,10 +145,12 @@ RULES:
     - switch on also works with SObject types, enums, and Integer/Long values.
 
 - Use the Assert class (e.g., Assert.areEqual(), Assert.isTrue()) instead of the legacy System.assert() methods.
-- Use User Mode for DML and SOQL (API 60.0+):
+- Explicitly set the access mode for every SOQL/DML operation. Salesforce documents user-mode as the default in API 67.0+ and system-mode in API 66.0 and earlier; explicit modes prevent behavior changes when API versions differ:
     - Database.insert(records, AccessLevel.USER_MODE);
     - [SELECT Id FROM Account WITH USER_MODE]
-    - This is the modern replacement for manual CRUD/FLS checks.
+- Prefer USER_MODE for user-context operations; it enforces the running user's sharing, CRUD, and FLS.
+- SYSTEM_MODE bypasses CRUD/FLS, but record sharing still depends on the class's `with sharing` / `without sharing` declaration. Use it only for a documented and authorized business need, and preserve least-privilege record sharing.
+- `with sharing` alone enforces record-level sharing only; it does not enforce CRUD/FLS.
 - Use null-safe comparison patterns:
     String.isBlank(value) instead of value == null || value == ''
     String.isNotBlank(value) instead of value != null && value != ''
@@ -214,10 +216,11 @@ RULES:
 - Use aggregate queries (COUNT(), SUM(), AVG(), GROUP BY) when you need summaries instead of retrieving and looping all records.
 - When querying in a for loop (SOQL for loop), use the batch syntax: for (List<Account> batch : [SELECT ...]) to process in chunks of 200.
 - Never rely on record order unless you specify ORDER BY.
-- Use `WITH USER_MODE` in SOQL to enforce CRUD and FLS automatically (preferred, API 60.0+):
+- Explicitly select a mode for every query. For user-context queries, prefer `WITH USER_MODE` to enforce the running user's sharing, CRUD, and FLS:
     SELECT Id, Name FROM Account WITH USER_MODE
-- Use `WITH SECURITY_ENFORCED` as an alternative to WITH USER_MODE (throws exception on inaccessible fields).
-- Use Security.stripInaccessible() when you need to silently strip inaccessible fields rather than throw.
+- For graceful field filtering, use `Security.stripInaccessible()` only with a deliberate query and sharing strategy; handle removed-field information and object-access failures. Do not rely on field stripping to secure fields used in filters or other query logic.
+- `WITH SYSTEM_MODE` bypasses CRUD/FLS, not necessarily record sharing; the class sharing declaration determines record-level access. Use it only for a documented and authorized business need.
+- Do not prescribe `WITH SECURITY_ENFORCED` as the default. Prefer USER_MODE for user-context queries because it enforces permissions across the query; use another approach only for a verified compatibility or behavior requirement.
 - Avoid SOQL in constructors of Visualforce controllers — defer to init methods or lazy loading.
 - Use the Selector pattern (a dedicated class per object) for all SOQL queries in complex orgs.
 - Never assign SOQL results to a single SObject variable unless you are certain exactly 1 row will return:
@@ -256,7 +259,7 @@ RULES:
     insert new Account(Name = 'Test');
     insert new User(...);
     // GOOD — use @future or System.runAs() in tests, or separate transactions.
-- User Mode DML (API 60.0+): Use Database.insert(records, AccessLevel.USER_MODE) to enforce CRUD/FLS automatically.
+- User Mode DML: use Database DML methods with an explicit AccessLevel.USER_MODE or AccessLevel.SYSTEM_MODE. Prefer USER_MODE for user-context work.
 ```
 
 ---
@@ -343,8 +346,9 @@ RULES:
     }
 - Create custom exception classes for domain logic:
     public class CaseRoutingException extends Exception {}
-- Use addError() on SObject records in trigger context instead of throwing exceptions:
+- Use addError() on SObject records in trigger context for record-level validation/business errors:
     record.addError('Validation failed: reason');
+- Use appropriate exceptions or result handling for failures outside trigger-record validation; addError() is not a general exception-handling replacement.
 - Implement a centralized logging utility class that writes to a custom object (e.g., Apex_Error_Log__c) or uses Platform Events for async logging.
 - Log the following in every error entry: class name, method name, line number, exception message, stack trace, record ID(s) involved, user ID, timestamp.
 - Use finally blocks for cleanup (e.g., releasing resources, resetting state).
@@ -362,12 +366,14 @@ RULES:
 ```
 RULES:
 - Always use `with sharing` unless there is a documented business reason to bypass.
-- Use WITH SECURITY_ENFORCED in SOQL to enforce Field-Level Security (FLS) and Object-Level Security (CRUD).
-    SELECT Id, Name FROM Account WITH SECURITY_ENFORCED
-- Alternatively, use Security.stripInaccessible() to remove fields the running user cannot access:
+- Explicitly select a mode for each query. For user-context SOQL, prefer WITH USER_MODE:
+    SELECT Id, Name FROM Account WITH USER_MODE
+- Use Security.stripInaccessible() when graceful field filtering is intended, with an explicit query and record-sharing strategy:
     SObjectAccessDecision decision = Security.stripInaccessible(AccessType.READABLE, accounts);
     List<Account> safeAccounts = decision.getRecords();
 - Use Security.stripInaccessible(AccessType.CREATABLE, records) before insert, AccessType.UPDATABLE before update.
+- `with sharing` enforces record-level sharing, not CRUD/FLS. SYSTEM_MODE bypasses CRUD/FLS while record sharing depends on the class sharing declaration. Use it only for a documented, authorized business need.
+- Do not use WITH SECURITY_ENFORCED as the default; prefer USER_MODE for user-context queries. Verify any compatibility exception against current Salesforce documentation.
 - Never use String concatenation to build SOQL queries from user input. Use bind variables or String.escapeSingleQuotes().
 - Validate and sanitize all external input (API parameters, Visualforce parameters, Lightning component parameters).
 - Never store credentials, API keys, or secrets in Apex code. Use Named Credentials, Protected Custom Metadata, or Custom Settings (protected).
@@ -378,7 +384,7 @@ RULES:
 - Never expose internal org structure (user IDs, org IDs, field API names) to external consumers unnecessarily.
 - Always use HTTPS endpoints for callouts — never use plain HTTP (PMD: ApexInsecureEndpoint).
 - Validate redirect URLs — never redirect to user-controlled URLs without validation (PMD: ApexOpenRedirect).
-- Use WITH USER_MODE (preferred) or WITH SECURITY_ENFORCED for SOQL, and Security.stripInaccessible() for DML, to enforce FLS/CRUD.
+- Prefer USER_MODE for user-context SOQL/DML; use stripInaccessible() when field filtering is intended. Use system mode only when justified and explicitly authorized.
 - @AuraEnabled property getters must be `public` or `global` — private getters will fail at runtime (PMD: InaccessibleAuraEnabledGetter).
 - @AuraEnabled methods do NOT support method overloading — two methods with the same name but different parameters will cause a runtime error. Use distinct method names.
 ```
@@ -422,7 +428,7 @@ RULES:
 RULES:
 - Every Apex class must have a corresponding test class.
 - Test classes must use the @isTest annotation at the class level.
-- Target minimum 95% code coverage (not just 75% — that's the deployment minimum, not the quality bar).
+- Meet the Salesforce deployment threshold and any project-specific coverage target. If none is defined, prioritize meaningful assertions and coverage of behavior, bulk, permission, and error paths; do not treat 95% as a universal requirement.
 - 100% coverage for all critical business logic paths.
 - Use @testSetup to create test data shared across test methods. This improves test performance.
 - NEVER use @SeeAllData=true. Ever. Tests must create their own data.
@@ -584,13 +590,13 @@ RULES:
 - Standard -meta.xml for Apex class:
     <?xml version="1.0" encoding="UTF-8"?>
     <ApexClass xmlns="http://soap.sforce.com/2006/04/metadata">
-        <apiVersion>66.0</apiVersion>
+        <apiVersion>68.0</apiVersion>
         <status>Active</status>
     </ApexClass>
 - Standard -meta.xml for Apex trigger:
     <?xml version="1.0" encoding="UTF-8"?>
     <ApexTrigger xmlns="http://soap.sforce.com/2006/04/metadata">
-        <apiVersion>66.0</apiVersion>
+        <apiVersion>68.0</apiVersion>
         <status>Active</status>
     </ApexTrigger>
 - Place all source code in the sfdx project structure:
@@ -1003,7 +1009,7 @@ These are the most frequently asked Salesforce StackExchange issues. Build aware
 |----------|------|----------|
 | Bulkification | No SOQL/DML in loops | **CRITICAL** |
 | Security | Use `with sharing` by default | **CRITICAL** |
-| Security | Use `WITH USER_MODE` or `WITH SECURITY_ENFORCED` in SOQL | **CRITICAL** |
+| Security | Explicit access mode; prefer USER_MODE; justify SYSTEM_MODE and preserve sharing | **CRITICAL** |
 | Security | No hardcoded credentials — use Named Credentials | **CRITICAL** |
 | Security | Use bind variables in SOQL — no string concatenation | **CRITICAL** |
 | Security | Always use HTTPS endpoints, never HTTP | **CRITICAL** |
@@ -1016,7 +1022,7 @@ These are the most frequently asked Salesforce StackExchange issues. Build aware
 | DML | Handle MixedDmlException — separate setup/non-setup DML | **HIGH** |
 | DML | Callouts BEFORE DML, never after (uncommitted work error) | **HIGH** |
 | SOQL | Use List<SObject> not single SObject assignment | **HIGH** |
-| Testing | 95%+ coverage with meaningful assertions | **HIGH** |
+| Testing | Meet deployment and project coverage targets with meaningful assertions | **HIGH** |
 | Testing | Never use @SeeAllData=true | **HIGH** |
 | Testing | Include positive, negative, bulk, and permission tests | **HIGH** |
 | Error Handling | No empty catch blocks | **HIGH** |
@@ -1038,7 +1044,7 @@ These are the most frequently asked Salesforce StackExchange issues. Build aware
 | Async | Prefer Queueable over @future (PMD: AvoidFutureAnnotation) | **HIGH** |
 | Async | Consider attaching Finalizer to Queueable (PMD: QueueableWithoutFinalizer) | **LOW** |
 | Async | Avoid storing Database results in Stateful batch (PMD: AvoidStatefulDatabaseResult) | **MEDIUM** |
-| Metadata | Always include -meta.xml files, API version 66.0 | **HIGH** |
+| Metadata | Include required -meta.xml files and use the latest verified GA API version | **HIGH** |
 
 ---
 

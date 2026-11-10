@@ -61,7 +61,7 @@ This is a **copy-paste-ready** ruleset. Depending on your tool:
 
 ```
 RULES:
-- Use API version 66.0 (Spring '26) or later for all new LWC components. Keep all components on the same API version.
+- Use the latest GA API version verified in official Salesforce documentation and supported by the project. API 68.0 is the version recorded in project examples, not proof it remains latest GA; verify before creating metadata. Do not assume preview/beta versions are GA.
 - Follow the Web Components standard — LWC is built on it.
 - Every component must work correctly in both Lightning Experience and the Salesforce mobile app unless explicitly scoped.
 - Components must be self-contained — no external CDN dependencies (jQuery, Bootstrap, etc.) embedded directly. Use Static Resources or standard SLDS if needed.
@@ -380,9 +380,9 @@ RULES:
         }
     }
 
-- Always show a loading state during Apex calls.
-- Always handle errors with try/catch.
-- Always reset loading state in the finally block.
+- Handle errors at the appropriate boundary for the operation; use try/catch when the component can recover, provide feedback, or translate the error.
+- Restore temporary UI state in finally when cleanup is needed, including loading state set by the component.
+- Show a loading indicator for operations where the user benefits from visible progress; choose the indicator and timing based on the interaction rather than requiring a spinner for every async call.
 - Use @AuraEnabled(cacheable=true) on Apex methods that are read-only for wire compatibility:
     - cacheable=true means the method cannot perform DML, send emails, or enqueue jobs.
     - Data is cached client-side. Use refreshApex() to force a re-fetch:
@@ -830,22 +830,24 @@ RULES:
     import MyComponent from 'c/myComponent';
     
     describe('c-my-component', () => {
+        let element;
+
         afterEach(() => {
-            // Clean up DOM after each test
-            while (document.body.firstChild) {
-                document.body.removeChild(document.body.firstChild);
+            if (element?.isConnected) {
+                element.remove();
             }
+            element = undefined;
         });
         
         it('displays account name when data is loaded', async () => {
-            const element = createElement('c-my-component', { is: MyComponent });
+            element = createElement('c-my-component', { is: MyComponent });
             document.body.appendChild(element);
             
             // assertions
         });
     });
 
-- ALWAYS clean up DOM in afterEach — prevents test pollution.
+- Clean up only elements created by the test in afterEach (or use the project's shared cleanup helper); do not remove unrelated children from document.body.
 - Mock Apex methods:
     jest.mock('@salesforce/apex/AccountController.getAccounts', () => ({
         default: jest.fn()
@@ -940,7 +942,7 @@ RULES:
 - Every LWC must have a .js-meta.xml file:
     <?xml version="1.0" encoding="UTF-8"?>
     <LightningComponentBundle xmlns="http://soap.sforce.com/2006/04/metadata">
-        <apiVersion>66.0</apiVersion>
+        <apiVersion>68.0</apiVersion>
         <isExposed>true</isExposed>
         <masterLabel>Case Routing Dashboard</masterLabel>
         <description>Displays and manages case routing assignments</description>
@@ -1486,7 +1488,7 @@ These are the most frequently asked LWC issues on Salesforce StackExchange. Buil
 | Testing | Jest tests for every component | **HIGH** |
 | Testing | Clean up DOM in afterEach | **HIGH** |
 | Base Comps | Use lightning-* base components | **MEDIUM** |
-| Metadata | Include .js-meta.xml with targets, API version 66.0 | **HIGH** |
+| Metadata | Include .js-meta.xml with targets and latest verified GA API version | **HIGH** |
 | LDS | Use record forms over custom CRUD | **MEDIUM** |
 | Navigation | Use NavigationMixin, never window.location | **HIGH** |
 | Light DOM | Use only when Shadow DOM won't work; document tradeoffs | **MEDIUM** |

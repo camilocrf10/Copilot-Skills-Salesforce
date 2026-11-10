@@ -153,7 +153,7 @@ my-salesforce-project/
   "name": "my-salesforce-project",
   "namespace": "",
   "sfdcLoginUrl": "https://login.salesforce.com",
-  "sourceApiVersion": "66.0"
+  "sourceApiVersion": "68.0"
 }
 ```
 
@@ -383,7 +383,7 @@ sf project deploy start --source-dir force-app --test-level RunAllTestsInOrg
         <members>My_Permission_Set</members>
         <name>PermissionSet</name>
     </types>
-    <version>66.0</version>
+    <version>68.0</version>
 </Package>
 ```
 
@@ -400,7 +400,7 @@ sf project deploy start --source-dir force-app --test-level RunAllTestsInOrg
         <members>Account.Old_Field__c</members>
         <name>CustomField</name>
     </types>
-    <version>66.0</version>
+    <version>68.0</version>
 </Package>
 ```
 

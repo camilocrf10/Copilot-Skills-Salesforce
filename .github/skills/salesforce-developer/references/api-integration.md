@@ -31,7 +31,7 @@ global with sharing class AccountRestService {
             SELECT Id, Name, Industry, AnnualRevenue
             FROM Account
             WHERE Id = :accountId
-            WITH SECURITY_ENFORCED
+            WITH USER_MODE
         ];
     }
 
@@ -228,30 +228,30 @@ curl -X POST https://login.salesforce.com/services/oauth2/token \
 # See the OAuth 2.0 Flow Decision Guide below for choosing the right flow.
 
 # Query records
-curl https://YOUR_INSTANCE.salesforce.com/services/data/v66.0/query?q=SELECT+Id,Name+FROM+Account+LIMIT+5 \
+curl https://YOUR_INSTANCE.salesforce.com/services/data/v68.0/query?q=SELECT+Id,Name+FROM+Account+LIMIT+5 \
   -H "Authorization: Bearer ACCESS_TOKEN"
 
 # Create record
-curl -X POST https://YOUR_INSTANCE.salesforce.com/services/data/v66.0/sobjects/Account \
+curl -X POST https://YOUR_INSTANCE.salesforce.com/services/data/v68.0/sobjects/Account \
   -H "Authorization: Bearer ACCESS_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"Name":"New Account","Industry":"Technology"}'
 
 # Composite request (up to 25 subrequests, references allowed)
-curl -X POST https://YOUR_INSTANCE.salesforce.com/services/data/v66.0/composite \
+curl -X POST https://YOUR_INSTANCE.salesforce.com/services/data/v68.0/composite \
   -H "Authorization: Bearer ACCESS_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
     "compositeRequest": [
       {
         "method": "POST",
-        "url": "/services/data/v66.0/sobjects/Account",
+        "url": "/services/data/v68.0/sobjects/Account",
         "referenceId": "newAccount",
         "body": { "Name": "Composite Account" }
       },
       {
         "method": "POST",
-        "url": "/services/data/v66.0/sobjects/Contact",
+        "url": "/services/data/v68.0/sobjects/Contact",
         "referenceId": "newContact",
         "body": {
           "LastName": "Smith",

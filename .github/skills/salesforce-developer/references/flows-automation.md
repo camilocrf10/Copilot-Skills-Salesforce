@@ -339,10 +339,10 @@ public with sharing class FlowAccountActions {
         }
 
         Map<Id, Account> masterMap = new Map<Id, Account>(
-            [SELECT Id, Name FROM Account WHERE Id IN :masterIds WITH SECURITY_ENFORCED]
+            [SELECT Id, Name FROM Account WHERE Id IN :masterIds WITH USER_MODE]
         );
         Map<Id, Account> duplicateMap = new Map<Id, Account>(
-            [SELECT Id FROM Account WHERE Id IN :duplicateIds WITH SECURITY_ENFORCED]
+            [SELECT Id FROM Account WHERE Id IN :duplicateIds WITH USER_MODE]
         );
 
         for (MergeRequest req : requests) {

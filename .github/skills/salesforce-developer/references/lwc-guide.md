@@ -100,7 +100,7 @@ export default class MyComponent extends LightningElement {
 ```xml
 <?xml version="1.0" encoding="UTF-8"?>
 <LightningComponentBundle xmlns="http://soap.sforce.com/2006/04/metadata">
-    <apiVersion>66.0</apiVersion>
+    <apiVersion>68.0</apiVersion>
     <isExposed>true</isExposed>
     <targets>
         <target>lightning__RecordPage</target>
@@ -238,7 +238,7 @@ public with sharing class AccountController {
             SELECT Id, Name, Industry, AnnualRevenue
             FROM Account
             WHERE Industry = :industry
-            WITH SECURITY_ENFORCED
+            WITH USER_MODE
             ORDER BY Name
             LIMIT 50
         ];

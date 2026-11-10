@@ -202,18 +202,18 @@ This layered approach ensures Copilot always has the right level of detail — f
 | Feature | Without Skills | With Skills + Rulesets |
 |---|---|---|
 | SOQL in loops | Copilot may generate it | Blocked by Rule CP1 — always bulkified |
-| `without sharing` | Often used by default | `with sharing` enforced, `WITH SECURITY_ENFORCED` in SOQL |
+| `without sharing` | Often used by default | Explicit sharing declaration; USER_MODE preferred for user-context database access |
 | Process Builder | May be recommended | Flagged as deprecated — Flow recommended |
 | Hardcoded IDs | Common in AI output | Blocked — uses `Schema.describe` or Custom Metadata |
 | Test coverage | Basic tests | 200-record bulk tests with `@TestSetup` and Arrange-Act-Assert |
-| API version | Often outdated | Always latest GA (currently 66.0) |
+| API version | Often outdated | Verify latest GA against official Salesforce release/API documentation |
 | Boolean recursion guard | Common AI mistake | `Set<Id>` pattern enforced |
 | Architecture advice | Generic | Grounded in Well-Architected Framework + Decision Guides |
 | PMD compliance | Not considered | 50+ PMD rules mapped and enforced |
 | ESLint compliance | Not considered | @salesforce/eslint-config-lwc/recommended enforced |
 | LWC event naming | Often wrong (hyphens, camelCase) | Lowercase-only enforced |
 | `if:true`/`if:false` | May use deprecated syntax | `lwc:if`/`lwc:elseif`/`lwc:else` enforced |
-| Error handling | Often missing | try/catch/finally with loading state, toast, and reduceErrors |
+| Error handling | Often missing | Context-appropriate handling, recovery, and user feedback |
 
 ---
 
@@ -232,9 +232,9 @@ These skills and rulesets are designed for:
 
 ---
 
-## Validated As Of
+## Documentation Currency
 
-**February 2026** — Salesforce API v66.0 (Spring '26). Reference files are tagged with validation dates and should be reviewed against current release notes.
+The security guidance was checked against official Salesforce Apex security documentation on November 10, 2026. API 68.0 appears in project examples but has not been independently confirmed here as the latest GA version. Verify release notes, API version availability, and feature-specific docs before adopting a version or platform behavior. This is not a claim that every reference in this repository has been fully validated against all Salesforce documentation.
 
 ---
 
